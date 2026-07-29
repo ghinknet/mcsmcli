@@ -104,7 +104,8 @@ func (c *Client) DownloadFile(ctx context.Context, daemonID, uuid, remotePath, l
 	}
 
 	fileName := filepath.Base(strings.ReplaceAll(remotePath, "\\", "/"))
-	dlURL := fmt.Sprintf("%s://%s/download/%s/%s", c.daemonScheme(), cred.Addr,
+	scheme, host := c.transferEndpoint(cred.Addr)
+	dlURL := fmt.Sprintf("%s://%s/download/%s/%s", scheme, host,
 		url.PathEscape(cred.Password), url.PathEscape(fileName))
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, dlURL, nil)
 	if err != nil {
@@ -158,7 +159,8 @@ func (c *Client) UploadFile(ctx context.Context, daemonID, uuid, uploadDir, loca
 		pw.CloseWithError(err)
 	}()
 
-	upURL := fmt.Sprintf("%s://%s/upload/%s", c.daemonScheme(), cred.Addr, url.PathEscape(cred.Password))
+	upScheme, upHost := c.transferEndpoint(cred.Addr)
+	upURL := fmt.Sprintf("%s://%s/upload/%s", upScheme, upHost, url.PathEscape(cred.Password))
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, upURL, pr)
 	if err != nil {
 		return err
@@ -179,16 +181,32 @@ func (c *Client) UploadFile(ctx context.Context, daemonID, uuid, uploadDir, loca
 // transferHTTP is used for direct file transfers with daemons. No timeout is set to avoid interrupting large transfers.
 var transferHTTP = &http.Client{}
 
-// daemonScheme determines the protocol for direct daemon connections. Defaults to https when the panel uses https.
-// Set MCSM_DAEMON_SCHEME to override (for deployments where panel and daemon protocols differ).
-func (c *Client) daemonScheme() string {
+// transferEndpoint splits a transfer-credential address into an HTTP scheme and
+// a bare host:port. Newer panels return addr with a WebSocket scheme
+// (e.g. wss://host:port); older ones return bare host:port.
+// Scheme priority: MCSM_DAEMON_SCHEME env > scheme embedded in addr > panel URL scheme.
+func (c *Client) transferEndpoint(addr string) (scheme, host string) {
+	host = addr
+	if i := strings.Index(addr, "://"); i >= 0 {
+		host = addr[i+3:]
+		switch strings.ToLower(addr[:i]) {
+		case "wss", "https":
+			scheme = "https"
+		case "ws", "http":
+			scheme = "http"
+		}
+	}
 	if s := os.Getenv("MCSM_DAEMON_SCHEME"); s != "" {
-		return s
+		scheme = s
 	}
-	if strings.HasPrefix(c.BaseURL, "https://") {
-		return "https"
+	if scheme == "" {
+		if strings.HasPrefix(c.BaseURL, "https://") {
+			scheme = "https"
+		} else {
+			scheme = "http"
+		}
 	}
-	return "http"
+	return scheme, host
 }
 
 // ---- Image Manager ----
