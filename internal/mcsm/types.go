@@ -132,7 +132,7 @@ type InstanceDetail struct {
 		CPU     float64 `json:"cpu"`
 		Memory  int64   `json:"memory"`
 		PID     int     `json:"pid"`
-		Elapsed int64   `json:"elapsed"`
+		Elapsed float64 `json:"elapsed"` // milliseconds; the Node.js daemon emits fractional values (e.g. 24039.9999999403)
 	} `json:"processInfo"`
 }
 

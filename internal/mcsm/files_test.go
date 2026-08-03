@@ -5,8 +5,8 @@ import (
 	"time"
 )
 
-// TestTransferEndpoint 验证传输凭据地址的协议归一化：
-// 新版面板返回的 addr 携带 ws/wss 协议前缀，旧版返回裸 host:port。
+// TestTransferEndpoint verifies protocol normalization for transfer credential addresses:
+// newer panels return addr with ws/wss prefixes, while older ones return raw host:port.
 func TestTransferEndpoint(t *testing.T) {
 	httpsClient := New("https://panel.example.com", "k", 5*time.Second)
 	httpClient := New("http://panel.example.com", "k", 5*time.Second)
